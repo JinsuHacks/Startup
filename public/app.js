@@ -186,7 +186,7 @@ async function syncSocialState() {
 
   const followButton = document.querySelector('[data-follow-button]');
   if (followButton) {
-    followButton.textContent = `${state.hasFollowed ? 'Followed' : 'Follow'} • ${state.followers}`;
+    followButton.textContent = `${state.hasFollowed ? 'Following' : 'Follow'} • ${state.followers}`;
   }
 }
 
@@ -285,7 +285,7 @@ async function render() {
             </div>
             <div class="profile-links">
               <button class="action-button" type="button" data-follow-button>
-                ${state.hasFollowed ? `Followed • ${state.followers}` : `Follow • ${state.followers}`}
+                ${state.hasFollowed ? `Following • ${state.followers}` : `Follow • ${state.followers}`}
               </button>
               <button class="action-button" type="button" data-message-button>Message</button>
             </div>
@@ -362,7 +362,7 @@ async function render() {
   if (followButton) {
     followButton.addEventListener('click', async () => {
       if (state.hasFollowed) {
-        followButton.textContent = `Followed • ${state.followers}`;
+        followButton.textContent = `Following • ${state.followers}`;
         return;
       }
 
@@ -375,7 +375,7 @@ async function render() {
       }
       setLocalStorageValue('profile-followed-by-me', 'true');
       setLocalStorageValue('profile-follow-count', String(state.followers));
-      followButton.textContent = `Followed • ${state.followers}`;
+      followButton.textContent = `Following • ${state.followers}`;
     });
   }
 
