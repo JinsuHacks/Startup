@@ -466,6 +466,19 @@ button, input, textarea {
   display: none !important;
 }
 
+#admin-panel {
+  position: relative;
+  z-index: 10;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#admin-panel > .content-card {
+  margin-bottom: 24px;
+}
+
 .admin-modal {
   position: fixed;
   inset: 0;
