@@ -94,7 +94,8 @@ function saveConfig(persistPath, config) {
 }
 
 function createApp(options = {}) {
-  const persistPath = options.persistPath || './site-config.json';
+  const dataDirectory = process.env.DATA_DIR || __dirname;
+  const persistPath = options.persistPath || path.join(dataDirectory, 'site-config.json');
   const app = express();
 
   app.use(express.json({ limit: '100mb', strict: true }));
