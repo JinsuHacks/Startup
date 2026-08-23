@@ -94,7 +94,7 @@ function saveConfig(persistPath, config) {
 }
 
 function createApp(options = {}) {
-  const dataDirectory = process.env.DATA_DIR || __dirname;
+  const dataDirectory = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
   const persistPath = options.persistPath || path.join(dataDirectory, 'site-config.json');
   const app = express();
 
