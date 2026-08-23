@@ -1,0 +1,44 @@
+{
+  "profile": {
+    "name": "Nova Vale",
+    "tagline": "Sound + style",
+    "bio": "A personal site for sharing your art, music, and vibe.",
+    "location": "Somewhere online",
+    "status": "Available",
+    "avatar": "",
+    "banner": ""
+  },
+  "theme": {
+    "primary": "#ff4d6d",
+    "accent": "#f7b801",
+    "background": "#09090f",
+    "backgroundImage": "",
+    "surface": "#171827",
+    "text": "#f5f5f7"
+  },
+  "stats": {
+    "viewCount": 23
+  },
+  "music": {
+    "enabled": true,
+    "title": "Now Playing",
+    "artist": "Your favorite artist",
+    "cover": "",
+    "src": "",
+    "volume": 0.45
+  },
+  "widgets": [],
+  "records": [],
+  "cursor": {
+    "enabled": false,
+    "url": ""
+  },
+  "customCss": "",
+  "sections": {
+    "about": true,
+    "music": true,
+    "library": true,
+    "widgets": true,
+    "contact": true
+  }
+}

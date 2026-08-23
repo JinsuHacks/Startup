@@ -1,0 +1,20 @@
+{
+  "name": "personal-gunslol",
+  "version": "1.0.0",
+  "description": "Personal Guns.lol-style profile site with admin customization",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "profile",
+    "website",
+    "customization"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "supertest": "^7.0.0"
+  }
+}
