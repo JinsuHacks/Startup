@@ -143,7 +143,7 @@ async function fetchSite() {
   const response = await fetch('/api/site');
   const data = await response.json();
   state.config = data;
-  render();
+  await render(true);
 }
 
 function updateTheme(config) {
@@ -190,7 +190,7 @@ async function syncSocialState() {
   }
 }
 
-async function render() {
+async function render(countVisit = false) {
   state.hasFollowed = getLocalStorageValue('profile-followed-by-me', 'false') === 'true';
   await syncSocialState();
   state.visitorName = state.visitorName || randomVisitorName();
@@ -384,8 +384,24 @@ async function render() {
     messageButton.addEventListener('click', () => openChatBoard());
   }
 
-  // trigger first visit counter on public page load
-  fetch('/api/view').then((res) => res.json()).catch(() => {});
+  if (countVisit) {
+    fetch('/api/view').then((res) => res.json()).catch(() => {});
+  }
+}
+
+async function refreshPublicConfig() {
+  if (state.adminOpen) return;
+
+  try {
+    const response = await fetch('/api/site');
+    if (!response.ok) return;
+    const nextConfig = await response.json();
+    if (JSON.stringify(nextConfig) === JSON.stringify(state.config)) return;
+    state.config = nextConfig;
+    await render(false);
+  } catch (error) {
+    // Keep the current page available if a refresh request fails.
+  }
 }
 
 async function openChatBoard() {
@@ -908,4 +924,7 @@ function sanitizeJson(value, fallback) {
   setInterval(() => {
     syncSocialState();
   }, 4000);
+  setInterval(() => {
+    refreshPublicConfig();
+  }, 5000);
 })();
