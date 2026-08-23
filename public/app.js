@@ -26,6 +26,34 @@ function setLocalStorageValue(key, value) {
   }
 }
 
+async function fetchSocialState() {
+  try {
+    const response = await fetch('/api/social');
+    if (!response.ok) return { followers: 0, messages: [] };
+    const data = await response.json();
+    return {
+      followers: Number(data.followers || 0),
+      messages: Array.isArray(data.messages) ? data.messages : []
+    };
+  } catch (error) {
+    return { followers: 0, messages: [] };
+  }
+}
+
+async function saveSocialState(update) {
+  try {
+    const response = await fetch('/api/social', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
 function getFollowerCount() {
   const value = Number(getLocalStorageValue('profile-follow-count', '0'));
   return Number.isFinite(value) && value >= 0 ? value : 0;
@@ -150,10 +178,21 @@ function updateTheme(config) {
   }
 }
 
-function render() {
-  state.followers = getFollowerCount();
+async function syncSocialState() {
+  const socialState = await fetchSocialState();
+  state.followers = Number(socialState.followers || 0);
+  state.chatMessages = Array.isArray(socialState.messages) ? socialState.messages : [];
+  saveChatMessages(state.chatMessages);
+
+  const followButton = document.querySelector('[data-follow-button]');
+  if (followButton) {
+    followButton.textContent = `${state.hasFollowed ? 'Followed' : 'Follow'} • ${state.followers}`;
+  }
+}
+
+async function render() {
   state.hasFollowed = getLocalStorageValue('profile-followed-by-me', 'false') === 'true';
-  state.chatMessages = getChatMessages();
+  await syncSocialState();
   state.visitorName = state.visitorName || randomVisitorName();
 
   const config = state.config || {};
@@ -321,14 +360,19 @@ function render() {
 
   const followButton = document.querySelector('[data-follow-button]');
   if (followButton) {
-    followButton.addEventListener('click', () => {
+    followButton.addEventListener('click', async () => {
       if (state.hasFollowed) {
         followButton.textContent = `Followed • ${state.followers}`;
         return;
       }
 
       state.hasFollowed = true;
-      state.followers += 1;
+      const next = await saveSocialState({ action: 'follow' });
+      if (next && Number.isFinite(Number(next.followers))) {
+        state.followers = Number(next.followers);
+      } else {
+        state.followers += 1;
+      }
       setLocalStorageValue('profile-followed-by-me', 'true');
       setLocalStorageValue('profile-follow-count', String(state.followers));
       followButton.textContent = `Followed • ${state.followers}`;
@@ -337,18 +381,19 @@ function render() {
 
   const messageButton = document.querySelector('[data-message-button]');
   if (messageButton) {
-    messageButton.addEventListener('click', openChatBoard);
+    messageButton.addEventListener('click', () => openChatBoard());
   }
 
   // trigger first visit counter on public page load
   fetch('/api/view').then((res) => res.json()).catch(() => {});
 }
 
-function openChatBoard() {
+async function openChatBoard() {
   const overlay = document.createElement('div');
   overlay.className = 'admin-modal';
 
-  const messages = getChatMessages();
+  const socialState = await fetchSocialState();
+  const messages = Array.isArray(socialState.messages) ? socialState.messages : [];
   const currentUser = getCurrentChatName();
   const isAdminUser = currentUser === 'Jinsu 👑';
 
@@ -388,18 +433,31 @@ function openChatBoard() {
   const form = overlay.querySelector('#chat-form');
   const input = overlay.querySelector('#chat-input');
 
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const text = input.value.trim();
     if (!text) return;
 
-    const nextMessages = [...getChatMessages(), {
+    const payload = {
+      action: 'message',
       sender: currentUser,
-      text,
+      message: text,
       time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    }];
+    };
 
-    saveChatMessages(nextMessages);
+    const next = await saveSocialState(payload);
+    if (next && Array.isArray(next.messages)) {
+      state.chatMessages = next.messages;
+      saveChatMessages(next.messages);
+    } else {
+      const nextMessages = [...getChatMessages(), {
+        sender: currentUser,
+        text,
+        time: payload.time
+      }];
+      state.chatMessages = nextMessages;
+      saveChatMessages(nextMessages);
+    }
     overlay.remove();
     openChatBoard();
   });
@@ -703,32 +761,66 @@ async function loadAdmin() {
         records.push(...state.config.records.filter((item) => item && (item.src || item.cover || item.title || item.artist)));
       }
 
+      const existingProfile = state.config?.profile || {};
+      const existingTheme = state.config?.theme || {};
+      const existingMusic = state.config?.music || {};
+      const existingCursor = state.config?.cursor || {};
+      const existingWidgets = Array.isArray(state.config?.widgets) ? state.config.widgets : [];
+
+      const profilePayload = {
+        name: formData.get('profile.name') || existingProfile.name || '',
+        tagline: formData.get('profile.tagline') || existingProfile.tagline || '',
+        bio: formData.get('profile.bio') || existingProfile.bio || '',
+        location: formData.get('profile.location') || existingProfile.location || '',
+        status: formData.get('profile.status') || existingProfile.status || 'Available'
+      };
+
+      if (profileAvatarFile && profileAvatarFile.size) {
+        profilePayload.avatar = profileAvatar;
+      } else if (String(formData.get('profile.avatar') || '').trim() && String(formData.get('profile.avatar')) !== (existingProfile.avatar || '')) {
+        profilePayload.avatar = String(formData.get('profile.avatar'));
+      }
+
+      if (bannerFile && bannerFile.size) {
+        profilePayload.banner = profileBanner;
+      } else if (String(formData.get('profile.banner') || '').trim() && String(formData.get('profile.banner')) !== (existingProfile.banner || '')) {
+        profilePayload.banner = String(formData.get('profile.banner'));
+      }
+
+      const themePayload = {
+        primary: formData.get('theme.primary') || existingTheme.primary || '#8a2be2',
+        accent: formData.get('theme.accent') || existingTheme.accent || '#f72585',
+        background: formData.get('theme.background') || existingTheme.background || '#09090f',
+        backgroundImage: formData.get('theme.backgroundImage') || existingTheme.backgroundImage || ''
+      };
+
+      const musicPayload = {
+        title: formData.get('music.title') || existingMusic.title || '',
+        artist: formData.get('music.artist') || existingMusic.artist || ''
+      };
+
+      if (musicCoverFile && musicCoverFile.size) {
+        musicPayload.cover = musicCover;
+      } else if (String(formData.get('music.cover') || '').trim() && String(formData.get('music.cover')) !== (existingMusic.cover || '')) {
+        musicPayload.cover = String(formData.get('music.cover'));
+      }
+
+      if (musicSrcFile && musicSrcFile.size) {
+        musicPayload.src = musicSrc;
+      } else if (String(formData.get('music.src') || '').trim() && String(formData.get('music.src')) !== (existingMusic.src || '')) {
+        musicPayload.src = String(formData.get('music.src'));
+      }
+
+      const cursorPayload = {
+        enabled: Boolean(cursorData || formData.get('cursor.url')),
+        url: cursorData || String(formData.get('cursor.url') || existingCursor.url || '')
+      };
+
       const payload = {
-        profile: {
-          name: formData.get('profile.name') || '',
-          tagline: formData.get('profile.tagline') || '',
-          bio: formData.get('profile.bio') || '',
-          location: formData.get('profile.location') || '',
-          status: formData.get('profile.status') || 'Available',
-          avatar: profileAvatar || formData.get('profile.avatar') || '',
-          banner: profileBanner || formData.get('profile.banner') || ''
-        },
-        theme: {
-          primary: formData.get('theme.primary') || '#8a2be2',
-          accent: formData.get('theme.accent') || '#f72585',
-          background: formData.get('theme.background') || '#09090f',
-          backgroundImage: formData.get('theme.backgroundImage') || ''
-        },
-        music: {
-          title: formData.get('music.title') || '',
-          artist: formData.get('music.artist') || '',
-          cover: musicCover || formData.get('music.cover') || '',
-          src: musicSrc || formData.get('music.src') || ''
-        },
-        cursor: {
-          enabled: Boolean(cursorData || formData.get('cursor.url')),
-          url: cursorData || formData.get('cursor.url') || ''
-        },
+        profile: profilePayload,
+        theme: themePayload,
+        music: musicPayload,
+        cursor: cursorPayload,
         sections: {
           about: formData.get('sections.about') !== null,
           music: formData.get('sections.music') !== null,
@@ -736,11 +828,18 @@ async function loadAdmin() {
           widgets: formData.get('sections.widgets') !== null,
           contact: formData.get('sections.contact') !== null
         },
-        records: records.length ? records : sanitizeJson(formData.get('records'), []),
-        widgets: sanitizeJson(formData.get('widgets'), []),
-        customCss: formData.get('customCss') || '',
+        customCss: formData.get('customCss') || state.config?.customCss || '',
         password
       };
+
+      if (records.length) {
+        payload.records = records;
+      }
+
+      const widgetsInput = String(formData.get('widgets') || '').trim();
+      if (widgetsInput) {
+        payload.widgets = sanitizeJson(widgetsInput, existingWidgets);
+      }
 
       const response = await fetch('/api/site', {
         method: 'POST',
@@ -751,9 +850,16 @@ async function loadAdmin() {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = null;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch (error) {
+        throw new Error(responseText || 'Saving failed');
+      }
+
       if (!response.ok) {
-        alert(data.error || 'Saving failed');
+        alert(data?.error || 'Saving failed');
         return;
       }
 
@@ -799,4 +905,7 @@ function sanitizeJson(value, fallback) {
   });
   document.body.appendChild(adminButton);
   loadAdmin();
+  setInterval(() => {
+    syncSocialState();
+  }, 4000);
 })();

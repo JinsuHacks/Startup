@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ADMIN_PASSWORD = '335Jp077';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '335Jp077';
 const DEFAULT_CONFIG = {
   profile: {
     name: 'Your Name',
@@ -34,6 +34,10 @@ const DEFAULT_CONFIG = {
   },
   widgets: [],
   records: [],
+  social: {
+    followers: 0,
+    messages: []
+  },
   cursor: {
     enabled: false,
     url: ''
@@ -70,6 +74,7 @@ function readConfig(persistPath) {
       theme: { ...DEFAULT_CONFIG.theme, ...(parsed.theme || {}) },
       stats: { ...DEFAULT_CONFIG.stats, ...(parsed.stats || {}) },
       music: { ...DEFAULT_CONFIG.music, ...(parsed.music || {}) },
+      social: { ...DEFAULT_CONFIG.social, ...(parsed.social || {}) },
       cursor: { ...DEFAULT_CONFIG.cursor, ...(parsed.cursor || {}) },
       sections: { ...DEFAULT_CONFIG.sections, ...(parsed.sections || {}) }
     };
@@ -92,7 +97,14 @@ function createApp(options = {}) {
   const persistPath = options.persistPath || './site-config.json';
   const app = express();
 
-  app.use(express.json({ limit: '25mb' }));
+  app.use(express.json({ limit: '100mb', strict: true }));
+  app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+  app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+      return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
+    return next(error);
+  });
   app.use(express.static(path.join(__dirname, 'public')));
 
   let config = readConfig(persistPath);
@@ -110,6 +122,53 @@ function createApp(options = {}) {
     res.json(config);
   });
 
+  app.get('/api/social', (req, res) => {
+    config = readConfig(persistPath);
+    const social = config.social || { followers: 0, messages: [] };
+    res.json({
+      followers: Number(social.followers || 0),
+      messages: Array.isArray(social.messages) ? social.messages : []
+    });
+  });
+
+  app.post('/api/social', (req, res) => {
+    config = readConfig(persistPath);
+    const social = config.social || { followers: 0, messages: [] };
+    const current = {
+      followers: Number(social.followers || 0),
+      messages: Array.isArray(social.messages) ? social.messages : []
+    };
+
+    const payload = req.body || {};
+    const socialPayload = payload.social || payload;
+    let nextFollowers = current.followers;
+    let nextMessages = current.messages;
+
+    if (typeof socialPayload.followers === 'number') {
+      nextFollowers = socialPayload.followers;
+    } else if (payload.action === 'follow') {
+      nextFollowers += 1;
+    }
+
+    if (Array.isArray(socialPayload.messages)) {
+      nextMessages = socialPayload.messages;
+    } else if (payload.action === 'message' && payload.message) {
+      nextMessages = [...nextMessages, {
+        sender: payload.sender || 'Guest',
+        text: String(payload.message).slice(0, 220),
+        time: payload.time || new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      }];
+    }
+
+    config.social = {
+      followers: nextFollowers,
+      messages: nextMessages
+    };
+
+    saveConfig(persistPath, config);
+    res.json({ followers: nextFollowers, messages: nextMessages });
+  });
+
   app.post('/api/site', (req, res) => {
     const password = req.get('x-admin-password') || req.body.password || '';
     if (password !== ADMIN_PASSWORD) {
@@ -124,6 +183,7 @@ function createApp(options = {}) {
       theme: { ...config.theme, ...(incoming.theme || {}) },
       stats: { ...config.stats, ...(incoming.stats || {}) },
       music: { ...config.music, ...(incoming.music || {}) },
+      social: { ...config.social, ...(incoming.social || {}) },
       cursor: { ...config.cursor, ...(incoming.cursor || {}) },
       sections: { ...config.sections, ...(incoming.sections || {}) },
       widgets: Array.isArray(incoming.widgets) ? incoming.widgets : config.widgets,
@@ -143,7 +203,7 @@ function createApp(options = {}) {
 
 if (require.main === module) {
   const app = createApp();
-  const port = process.env.PORT || 3000;
+  const port = Number(process.env.PORT) || 3000;
   app.listen(port, () => {
     console.log(`Personal profile site running on http://localhost:${port}`);
   });

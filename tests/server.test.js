@@ -37,3 +37,36 @@ test('POST /api/site saves custom site settings with the right password', async 
   assert.equal(res.body.profile.name, 'Nova Vale');
   assert.equal(res.body.theme.primary, '#ff4d6d');
 });
+
+test('POST /api/site returns a JSON error for malformed request bodies', async () => {
+  const res = await request(app)
+    .post('/api/site')
+    .set('x-admin-password', '335Jp077')
+    .set('Content-Type', 'application/json')
+    .send('{bad json');
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'Invalid JSON payload');
+});
+
+test('POST /api/social persists shared followers and chat messages', async () => {
+  const payload = {
+    social: {
+      followers: 42,
+      messages: [{ sender: 'Guest #1234', text: 'hello world', time: '9:00 PM' }]
+    }
+  };
+
+  const res = await request(app)
+    .post('/api/social')
+    .send(payload);
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.followers, 42);
+  assert.equal(res.body.messages.length, 1);
+
+  const site = await request(app).get('/api/site');
+  assert.equal(site.status, 200);
+  assert.equal(site.body.social.followers, 42);
+  assert.equal(site.body.social.messages[0].text, 'hello world');
+});
