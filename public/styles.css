@@ -357,6 +357,70 @@ button, input, textarea {
   color: var(--text);
 }
 
+.social-orbit {
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  perspective: 1000px;
+}
+
+.social-orbit-inner {
+  --card-width: 104px;
+  --card-height: 148px;
+  position: relative;
+  width: var(--card-width);
+  height: var(--card-height);
+  transform-style: preserve-3d;
+  transform: rotateX(-15deg);
+  animation: social-orbit-rotating 20s linear infinite;
+}
+
+.social-orbit-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--accent) 70%, white 30%);
+  border-radius: 12px;
+  color: var(--text);
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary) 30%, transparent), rgba(10, 10, 15, 0.9));
+  text-align: center;
+  transform: rotateY(calc((360deg / var(--quantity)) * var(--index))) translateZ(180px);
+  backface-visibility: hidden;
+}
+
+.social-orbit-card img,
+.social-orbit-card span {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  font-size: 1.8rem;
+}
+
+.social-orbit-card strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+@keyframes social-orbit-rotating {
+  from { transform: rotateX(-15deg) rotateY(0); }
+  to { transform: rotateX(-15deg) rotateY(1turn); }
+}
+
 .profile-links {
   display: flex;
   flex-wrap: wrap;

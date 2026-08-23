@@ -106,6 +106,16 @@ function normalizeLibraryTracks(records) {
   });
 }
 
+function normalizeSocialLinks(links) {
+  return (Array.isArray(links) ? links : [])
+    .map((link) => ({
+      label: String(link?.label || link?.title || '').trim(),
+      url: String(link?.url || '').trim(),
+      image: String(link?.image || link?.img || '').trim()
+    }))
+    .filter((link) => link.label && link.url);
+}
+
 function applyTrackToPlayer(track) {
   if (!track) return;
 
@@ -200,6 +210,7 @@ async function render(countVisit = false) {
 
   const sections = config.sections || {};
   const tracks = normalizeLibraryTracks(config.records);
+  const socialLinks = normalizeSocialLinks(config.socialLinks);
   const bannerStyle = config.profile?.banner ? `style="background-image: linear-gradient(135deg, rgba(16,18,21,0.15), rgba(16,18,21,0.5)), url('${config.profile.banner}'); background-size: cover; background-position: center;"` : '';
 
   document.getElementById('app').innerHTML = `
@@ -271,6 +282,20 @@ async function render(countVisit = false) {
                   ${widget.content || 'Fresh update'}
                 </div>
               `).join('') || '<div class="widget-item">No widgets added yet.</div>'}
+            </div>
+          </section>
+
+          <section class="content-card card ${socialLinks.length ? '' : 'hidden'}">
+            <h2>Socials</h2>
+            <div class="social-orbit" style="--quantity: ${Math.max(socialLinks.length, 1)};">
+              <div class="social-orbit-inner">
+                ${socialLinks.map((link, index) => `
+                  <a class="social-orbit-card" href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer" style="--index: ${index};" aria-label="${escapeHtml(link.label)}">
+                    ${link.image ? `<img src="${escapeHtml(link.image)}" alt="" />` : `<span>${escapeHtml(link.label.slice(0, 1).toUpperCase())}</span>`}
+                    <strong>${escapeHtml(link.label)}</strong>
+                  </a>
+                `).join('')}
+              </div>
             </div>
           </section>
         </main>
@@ -686,6 +711,7 @@ async function loadAdmin() {
           <label>Cursor file <input type="file" name="cursor.file" accept="image/*,.cur,.ico" /></label>
           <label>Cursor URL <input name="cursor.url" value="${state.config?.cursor?.url || ''}" /></label>
           <label>Widgets JSON <textarea name="widgets">${JSON.stringify(state.config?.widgets || [], null, 2)}</textarea></label>
+          <label>Social links JSON <textarea name="socialLinks" placeholder='[{"label":"YouTube","url":"https://youtube.com/@you"}]'>${JSON.stringify(state.config?.socialLinks || [], null, 2)}</textarea></label>
           <label>Custom CSS <textarea name="customCss">${state.config?.customCss || ''}</textarea></label>
           <label>Private password <input name="password" type="password" value="335Jp077" /></label>
           <div style="display:flex; gap:12px; flex-wrap: wrap;">
@@ -782,6 +808,7 @@ async function loadAdmin() {
       const existingMusic = state.config?.music || {};
       const existingCursor = state.config?.cursor || {};
       const existingWidgets = Array.isArray(state.config?.widgets) ? state.config.widgets : [];
+      const existingSocialLinks = Array.isArray(state.config?.socialLinks) ? state.config.socialLinks : [];
 
       const profilePayload = {
         name: formData.get('profile.name') || existingProfile.name || '',
@@ -856,6 +883,9 @@ async function loadAdmin() {
       if (widgetsInput) {
         payload.widgets = sanitizeJson(widgetsInput, existingWidgets);
       }
+
+      const socialLinksInput = String(formData.get('socialLinks') || '').trim();
+      payload.socialLinks = sanitizeJson(socialLinksInput, existingSocialLinks);
 
       const response = await fetch('/api/site', {
         method: 'POST',

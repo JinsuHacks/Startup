@@ -34,6 +34,7 @@ const DEFAULT_CONFIG = {
   },
   widgets: [],
   records: [],
+  socialLinks: [],
   social: {
     followers: 0,
     messages: []
@@ -75,6 +76,7 @@ function readConfig(persistPath) {
       stats: { ...DEFAULT_CONFIG.stats, ...(parsed.stats || {}) },
       music: { ...DEFAULT_CONFIG.music, ...(parsed.music || {}) },
       social: { ...DEFAULT_CONFIG.social, ...(parsed.social || {}) },
+      socialLinks: Array.isArray(parsed.socialLinks) ? parsed.socialLinks : DEFAULT_CONFIG.socialLinks,
       cursor: { ...DEFAULT_CONFIG.cursor, ...(parsed.cursor || {}) },
       sections: { ...DEFAULT_CONFIG.sections, ...(parsed.sections || {}) }
     };
@@ -185,6 +187,7 @@ function createApp(options = {}) {
       stats: { ...config.stats, ...(incoming.stats || {}) },
       music: { ...config.music, ...(incoming.music || {}) },
       social: { ...config.social, ...(incoming.social || {}) },
+      socialLinks: Array.isArray(incoming.socialLinks) ? incoming.socialLinks : config.socialLinks,
       cursor: { ...config.cursor, ...(incoming.cursor || {}) },
       sections: { ...config.sections, ...(incoming.sections || {}) },
       widgets: Array.isArray(incoming.widgets) ? incoming.widgets : config.widgets,
